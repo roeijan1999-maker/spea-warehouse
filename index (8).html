@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מחסן SPEA – לוח בקרה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2335;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --text2: #8891a8;
+    --text3: #545c72;
+    --accent: #4f8ef7;
+    --accent2: #7c6ff7;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --teal: #2dd4bf;
+    --font: 'Heebo', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    direction: rtl;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* layout */
+  .app { display: flex; min-height: 100vh; }
+
+  /* sidebar */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 0;
+    position: fixed;
+    top: 0; right: 0;
+    height: 100vh;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 0 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .sidebar-logo .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0 1.25rem;
+    margin-bottom: 4px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 1.25rem;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-right: 2px solid transparent;
+    margin: 1px 0;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .nav-item.active {
+    color: var(--accent);
+    background: rgba(79,142,247,0.08);
+    border-right-color: var(--accent);
+    font-weight: 500;
+  }
+  .nav-icon { width: 16px; text-align: center; font-size: 15px; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 1rem 1.25rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-footer .version {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  /* main */
+  .main {
+    margin-right: 220px;
+    flex: 1;
+    padding: 2rem 2rem 2rem;
+    min-height: 100vh;
+  }
+
+  /* page header */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--text); }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+    border: none;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6ba3f8; }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+  .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+  .btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+  /* sections */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* metric cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 1.75rem;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    opacity: 0.06;
+    transform: translate(20px, -20px);
+  }
+  .metric-card.blue::before { background: var(--accent); }
+  .metric-card.green::before { background: var(--green); }
+  .metric-card.red::before { background: var(--red); }
+  .metric-card.purple::before { background: var(--accent2); }
+  .metric-label { font-size: 11.5px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .metric-value { font-size: 32px; font-weight: 700; line-height: 1; }
+  .metric-value.blue { color: var(--accent); }
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.purple { color: var(--accent2); }
+  .metric-change { font-size: 11px; color: var(--text3); margin-top: 6px; font-family: var(--mono); }
+
+  /* charts grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 1.75rem;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .chart-legend {
+    display: flex; gap: 12px;
+    font-size: 11px; color: var(--text2);
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* table */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--font);
+    direction: rtl;
+  }
+  .search-input::placeholder { color: var(--text3); }
+  .search-input:focus { outline: none; border-color: rgba(79,142,247,0.4); }
+
+  .filter-select {
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--font);
+    cursor: pointer;
+    direction: rtl;
+  }
+  .filter-select:focus { outline: none; }
+
+  .table-count {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    background: var(--surface2);
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-ok { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+  .badge-bad { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+  .loc-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--teal);
+    font-weight: 500;
+  }
+  .type-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(124,111,247,0.1);
+    border: 1px solid rgba(124,111,247,0.2);
+    border-radius: 5px;
+    font-size: 11px;
+    color: var(--accent2);
+    font-weight: 500;
+  }
+  .sku-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+
+  /* form */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .form-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; }
+  .form-input, .form-select {
+    padding: 9px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--font);
+    direction: rtl;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus { outline: none; border-color: rgba(79,142,247,0.5); }
+  .form-input::placeholder { color: var(--text3); }
+  .form-select option { background: var(--surface2); }
+  .form-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+  .msg {
+    margin-top: 10px;
+    padding: 9px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    display: none;
+  }
+  .msg.success { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.2); display: block; }
+  .msg.error { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); display: block; }
+
+  /* import drop zone */
+  .dropzone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .dropzone:hover { border-color: rgba(79,142,247,0.4); background: rgba(79,142,247,0.04); }
+  .dropzone-icon { font-size: 28px; margin-bottom: 10px; }
+  .dropzone-text { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+  .dropzone-hint { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* locations grid */
+  .locations-map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+  .loc-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.15s;
+    cursor: default;
+  }
+  .loc-cell:hover { border-color: var(--border2); background: var(--surface2); }
+  .loc-cell.has-items { border-color: rgba(79,142,247,0.25); }
+  .loc-name { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--teal); margin-bottom: 6px; }
+  .loc-info { font-size: 11px; color: var(--text3); line-height: 1.6; }
+  .loc-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .loc-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--teal)); border-radius: 2px; transition: width 0.4s; }
+
+  /* action buttons in table */
+  .action-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: all 0.1s;
+  }
+  .action-btn:hover { color: var(--red); background: rgba(248,113,113,0.1); }
+
+  /* empty state */
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text3);
+    font-size: 13px;
+  }
+
+  /* alert banner */
+  .alert-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: var(--radius);
+    margin-bottom: 1.5rem;
+    font-size: 13px;
+    color: var(--red);
+  }
+
+  /* edit modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    width: 560px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: translateY(16px) scale(0.98);
+    transition: transform 0.2s cubic-bezier(0.34,1.2,0.64,1);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+  .modal-overlay.open .modal {
+    transform: translateY(0) scale(1);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .modal-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.1s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.25rem; }
+  .btn-save { background: var(--accent); color: #fff; border: none; padding: 9px 22px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); transition: background 0.15s; }
+  .btn-save:hover { background: #6ba3f8; }
+  .btn-cancel { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); padding: 9px 18px; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .btn-cancel:hover { color: var(--text); }
+  /* quick-toggle status button in table */
+  .status-toggle {
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .status-toggle:hover { opacity: 0.75; }
+  /* edit action btn */
+  .action-btn-edit {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: all 0.1s;
+  }
+  .action-btn-edit:hover { color: var(--accent); background: rgba(79,142,247,0.1); }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 9999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { border-color: rgba(52,211,153,0.3); color: var(--green); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-badge">
+        <div class="logo-icon">📦</div>
+        <span>SPEA WMS</span>
+      </div>
+    </div>
+    <div class="sidebar-label">ניווט</div>
+    <div class="nav-item active" onclick="switchTab('overview')">
+      <span class="nav-icon">◈</span> סקירה כללית
+    </div>
+    <div class="nav-item" onclick="switchTab('inventory')">
+      <span class="nav-icon">≡</span> מלאי רכיבים
+    </div>
+    <div class="nav-item" onclick="switchTab('add')">
+      <span class="nav-icon">＋</span> הוספת פריט
+    </div>
+    <div class="nav-item" onclick="switchTab('locations')">
+      <span class="nav-icon">⊞</span> מפת מיקומים
+    </div>
+    <div class="nav-item" onclick="switchTab('import')">
+      <span class="nav-icon">↑</span> ייבוא נתונים
+    </div>
+    <div class="sidebar-footer">
+      <div id="sync-indicator" style="font-size:11px;margin-bottom:6px;color:var(--text3)">מתחבר...</div>
+      <button onclick="loadFromSheets()" style="background:none;border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;width:100%;font-family:var(--font);margin-bottom:8px;" title="טען מחדש מ-Google Sheets">⟳ רענן נתונים</button>
+      <div class="version">v2.0 · SPEA IL · Sheets</div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="sec-overview" class="section active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">סקירה כללית</div>
+          <div class="page-sub">מחסן SPEA – עדכון אחרון: <span id="last-update">—</span></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="exportCSV()">⤓ ייצוא CSV</button>
+        </div>
+      </div>
+
+      <div id="faulty-alert" class="alert-banner" style="display:none">
+        ⚠ <span id="faulty-msg"></span>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card blue">
+          <div class="metric-label">סה"כ פריטים</div>
+          <div class="metric-value blue" id="m-total">—</div>
+          <div class="metric-change">פריטים ייחודיים</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">יחידות במלאי</div>
+          <div class="metric-value purple" id="m-units">—</div>
+          <div class="metric-change">כולל כפילויות</div>
+        </div>
+        <div class="metric-card green">
+          <div class="metric-label">פריטים תקינים</div>
+          <div class="metric-value green" id="m-ok">—</div>
+          <div class="metric-change" id="m-ok-pct">—</div>
+        </div>
+        <div class="metric-card red">
+          <div class="metric-label">פריטים תקולים</div>
+          <div class="metric-value red" id="m-bad">—</div>
+          <div class="metric-change" id="m-bad-pct">—</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">סטטוס מלאי</div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>תקין</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>תקול</div>
+            </div>
+          </div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="chartStatus" role="img" aria-label="עוגה: סטטוס פריטים"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">פריטים לפי מיקום</div>
+          </div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="chartLoc" role="img" aria-label="עמודות: פריטים לפי מיקום"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">התפלגות לפי סוג רכיב</div>
+          </div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="chartType" role="img" aria-label="עמודות: פריטים לפי סוג"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">יחידות לפי מיקום</div>
+          </div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="chartUnits" role="img" aria-label="עמודות: יחידות לפי מיקום"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div id="sec-inventory" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">מלאי רכיבים</div>
+          <div class="page-sub" id="inv-subtitle">—</div>
+        </div>
+        <button class="btn btn-primary" onclick="switchTab('add')">＋ הוספת פריט</button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <input class="search-input" id="search" type="text" placeholder='🔍  חיפוש לפי מק"ט, תיאור, מיקום...' oninput="filterTable()" />
+          <select class="filter-select" id="filter-status" onchange="filterTable()">
+            <option value="">כל הסטטוסים</option>
+            <option value="תקין">תקין</option>
+            <option value="תקול">תקול</option>
+          </select>
+          <select class="filter-select" id="filter-loc" onchange="filterTable()">
+            <option value="">כל המיקומים</option>
+          </select>
+          <select class="filter-select" id="filter-type" onchange="filterTable()">
+            <option value="">כל הסוגים</option>
+          </select>
+          <span class="table-count" id="table-count">—</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>מק"ט</th>
+              <th>תיאור רכיב</th>
+              <th style="text-align:center">כמות</th>
+              <th>סטטוס</th>
+              <th>מיקום</th>
+              <th>סוג</th>
+              <th>הערות</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="inv-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ADD ITEM -->
+    <div id="sec-add" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">הוספת פריט חדש</div>
+          <div class="page-sub">מלא את הפרטים ולחץ שמור</div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-section-title">🔧 פרטי הרכיב</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">מק"ט</label>
+            <input class="form-input" id="f-sku" type="text" placeholder="34027243118V03.00" />
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label class="form-label">תיאור רכיב *</label>
+            <input class="form-input" id="f-desc" type="text" placeholder="BOARD DI16IOA-11" />
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">כמות</label>
+            <input class="form-input" id="f-qty" type="number" min="1" value="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">סטטוס</label>
+            <select class="form-select" id="f-status">
+              <option>תקין</option>
+              <option>תקול</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">מיקום</label>
+            <select class="form-select" id="f-loc">
+              <option value="">— ללא —</option>
+              <option>A1</option><option>A2</option><option>A3</option><option>A4</option><option>A5</option>
+              <option>B1</option><option>B2</option><option>B3</option><option>B4</option><option>B5</option>
+              <option>C1</option><option>C2</option><option>C3</option><option>C4</option><option>C5</option>
+              <option>D1</option><option>D2</option><option>D3</option><option>D4</option><option>D5</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 2fr">
+          <div class="form-group">
+            <label class="form-label">סוג רכיב</label>
+            <input class="form-input" id="f-type" type="text" placeholder="4080 / 3030" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">הערות</label>
+            <input class="form-input" id="f-notes" type="text" placeholder="הערות נוספות..." />
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addItem()">שמור פריט</button>
+        <div id="add-msg" class="msg"></div>
+      </div>
+    </div>
+
+    <!-- LOCATIONS -->
+    <div id="sec-locations" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">מפת מיקומים</div>
+          <div class="page-sub">תצוגת כל תאי המחסן</div>
+        </div>
+      </div>
+      <div class="locations-map" id="loc-grid"></div>
+    </div>
+
+    <!-- IMPORT -->
+    <div id="sec-import" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">ייבוא נתונים</div>
+          <div class="page-sub">ייבא פריטים מקובץ CSV</div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div class="form-section-title">📂 ייבוא מ-CSV</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:0.75rem;line-height:1.7">
+          הקובץ צריך להכיל כותרות בשורה הראשונה בסדר הבא:<br>
+          <code style="font-family:var(--mono);font-size:12px;color:var(--teal)">מקט, תיאור, כמות, סטטוס, מיקום, סוג, הערות</code>
+        </p>
+        <div class="dropzone" onclick="document.getElementById('csv-input').click()">
+          <div class="dropzone-icon">📄</div>
+          <div class="dropzone-text">לחץ לבחירת קובץ CSV</div>
+          <div class="dropzone-hint">UTF-8 encoding · כותרות בשורה ראשונה</div>
+          <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(event)" />
+        </div>
+        <div id="import-msg" class="msg"></div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-section-title">⤓ ייצוא נתונים</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">ייצא את כל הנתונים הנוכחיים לקובץ CSV</p>
+        <button class="btn btn-ghost" onclick="exportCSV()">⤓ הורד CSV</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal-overlay" onclick="closeEditModal(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title-text">&#x270F;&#xFE0F; עריכת פריט</div>
+      <button class="modal-close" onclick="closeEditModal()" title="סגור">&#x2715;</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:12px">
+      <div class="form-group">
+        <label class="form-label">מק"ט</label>
+        <input class="form-input" id="e-sku" type="text" placeholder="מק&quot;ט" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">תיאור רכיב *</label>
+        <input class="form-input" id="e-desc" type="text" placeholder="תיאור הרכיב" />
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="form-group">
+        <label class="form-label">כמות</label>
+        <input class="form-input" id="e-qty" type="number" min="1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">סטטוס</label>
+        <select class="form-select" id="e-status">
+          <option value="תקין">תקין</option>
+          <option value="תקול">תקול</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">מיקום</label>
+        <select class="form-select" id="e-loc">
+          <option value="">— ללא —</option>
+          <option>A1</option><option>A2</option><option>A3</option><option>A4</option><option>A5</option>
+          <option>B1</option><option>B2</option><option>B3</option><option>B4</option><option>B5</option>
+          <option>C1</option><option>C2</option><option>C3</option><option>C4</option><option>C5</option>
+          <option>D1</option><option>D2</option><option>D3</option><option>D4</option><option>D5</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:12px">
+      <div class="form-group">
+        <label class="form-label">סוג רכיב</label>
+        <input class="form-input" id="e-type" type="text" placeholder="4080 / 3030" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">הערות</label>
+        <input class="form-input" id="e-notes" type="text" placeholder="הערות נוספות..." />
+      </div>
+    </div>
+
+    <div class="modal-divider"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeEditModal()">ביטול</button>
+      <button class="btn-save" onclick="saveEdit()">שמור שינויים</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+let inventory = [
+  {sku:'04-ACA2440-20GC',desc:'Faulty From FDY14GBC',qty:1,status:'תקין',loc:'A3',type:'',notes:'רכיב לא של SPEA'},
+  {sku:'3200635109800070',desc:'DSP200(Drivers Power Switch)',qty:1,status:'תקין',loc:'B2',type:'4080',notes:''},
+  {sku:'3200656817300110',desc:'SLP110 SYSTEM LINE PANEL',qty:1,status:'תקין',loc:'A1',type:'4080',notes:''},
+  {sku:'3200635109800080',desc:'DSP200(Drivers Power Switch)',qty:1,status:'תקול',loc:'',type:'4080',notes:''},
+  {sku:'34017940132V01.00',desc:'BNC CABLE',qty:2,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'3402369618100050',desc:'SCM100',qty:1,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'34027233111V03.10',desc:'BNC+ELBIS',qty:1,status:'תקין',loc:'A2',type:'',notes:'LIAT'},
+  {sku:'34027243118V03.00',desc:'MAV3 CAM5',qty:2,status:'תקין',loc:'A2',type:'4080',notes:''},
+  {sku:'3200885617800570',desc:'MODULO PCXINT200-20',qty:1,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'13602898210V01.00',desc:'PRELINK EXTE E',qty:1,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'15000821081V01.00',desc:'NASTRO IN GEL',qty:1,status:'תקין',loc:'B2',type:'',notes:''},
+  {sku:'34026904135V01.00',desc:'CAVO PATCH CAM RJ45',qty:1,status:'תקין',loc:'A2',type:'',notes:'SCREWLOCK-PRELINK'},
+  {sku:'3200559113300370',desc:'BOARD DI16IOA-11',qty:1,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'3200699620200020',desc:'BOARD CPUUM4 ECP',qty:1,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'3200043811604480',desc:'BOARD DI16IOA-11',qty:2,status:'תקין',loc:'A2',type:'',notes:''},
+  {sku:'34023917151V01.10',desc:'SAFETY REALY',qty:1,status:'תקין',loc:'B2',type:'4080',notes:'BSMU JDM1 FP200'},
+  {sku:'34023916143V01.01',desc:'SAFETY REALY',qty:1,status:'תקין',loc:'B2',type:'4080',notes:'TSMU JDM2 4080V2'},
+  {sku:'34023033079V01.06',desc:'K1&K2 SAFETY',qty:1,status:'תקין',loc:'B2',type:'',notes:'TSMU/BSMU JDM1E JDM2'},
+  {sku:'32009323108VLE.A',desc:'MODULO DBDIO410 FP',qty:1,status:'תקין',loc:'B2',type:'',notes:'64 DIRECT DIGITAL I/O'},
+  {sku:'',desc:'I10 LOCK',qty:1,status:'תקול',loc:'',type:'',notes:''},
+  {sku:'38720196165V01.00',desc:'RESISTOR BOX-SB002',qty:1,status:'תקין',loc:'B1',type:'4080',notes:''},
+  {sku:'38782577217V01.00',desc:'ASB100 SHUNT BOX',qty:1,status:'תקין',loc:'B1',type:'4080',notes:''},
+  {sku:'32001018083VLE.L',desc:'BOARD FLYREF9-S',qty:1,status:'תקין',loc:'A1',type:'4080',notes:''},
+  {sku:'35003348138V02.00',desc:'3030 TOOL #4 PRESCORE',qty:1,status:'תקין',loc:'B5',type:'3030',notes:''},
+  {sku:'14420322077V02.20',desc:'PRESSER PLATE CALIB',qty:1,status:'תקין',loc:'D4',type:'3030',notes:''},
+  {sku:'31006597184V01.10',desc:'PROLUNGA FIXTRUE DIAGNOSTICA',qty:1,status:'תקין',loc:'D4',type:'3030',notes:''},
+  {sku:'32003278147VLE.A',desc:'BOARD Z028400',qty:2,status:'תקין',loc:'B3',type:'3030',notes:''},
+  {sku:'32003282106VLE.A',desc:'BOARD Z028600',qty:3,status:'תקין',loc:'B3',type:'3030',notes:''},
+  {sku:'38783400111V01.00',desc:'SRVICE POWER SUPPLY PANEL',qty:1,status:'תקין',loc:'C4',type:'',notes:''},
+  {sku:'68259654',desc:'AccurET48 Drive EA -P2M',qty:1,status:'תקין',loc:'B3',type:'4080',notes:''},
+  {sku:'3873024009200000',desc:'Training Kit Basic-TK100',qty:1,status:'תקין',loc:'A3',type:'4080',notes:''},
+  {sku:'3200810206900330',desc:'LED',qty:4,status:'תקין',loc:'B3',type:'4080',notes:'ישראל צריך להביא את הרביעי'},
+  {sku:'13060058130V01.20',desc:'AK LIDA 27/28',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'34017319147V01.00',desc:'USB-SERIALE TTL FTDI',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'34015394153V01.25',desc:'QTPAF10 MOTOR',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'34015464138V01.01',desc:'DRIVE X12 QTPAF10',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'34017937181V01.00',desc:'Y5(AccurET 15 pinHD)',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'34016377168V01.25',desc:'LINEAR AXIS 1VPP (V2)',qty:1,status:'תקין',loc:'B1',type:'',notes:'LIAT'},
+  {sku:'32002896176VLE.A',desc:'Addattatore ZIF/DIN',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'32002199158VLE.A',desc:'YADIN (conn. Scanner in testata)',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'34016493156V01.00',desc:'DIN SYSTEM',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'34009605132V01.00',desc:'ROSSO/NERO',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'34002490108V01.01',desc:'BNC MEDIUM (L=100CM)',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'34005825138V01.00',desc:'YDIACAL200',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'34006663143V01.01',desc:'YDIACAL200-Single Bay',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'34006796194V01.00',desc:'Strip 2',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'34001556129V01.00',desc:'PC-חיבור מחשב למסך',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'34005824130V01.00',desc:'YDIACAL200-FLAT 1',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'14510116089V01.10',desc:'ממיר מתח 100-240Vac 3-12Vdc 1.2A',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'14542319147V01.00',desc:'מתאם לחיבור 7 USB',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'14022696174V01.00',desc:'ארגז ריק',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'32003278147VLE.A',desc:'BOARD Z028400-ADAPTER',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'14540897207V01.12',desc:'Cavo USB 2.0 A/B 2m',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'34009285164V01.00',desc:'DC Calibration',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'32001595145VLE.B',desc:'YADIREX-10 DIRECT RECIVER EXTENSION',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'32002895168VLE.A',desc:'3030 BOSCH - Adattatore ZIF/DIN (#6)',qty:1,status:'תקין',loc:'C5',type:'3030',notes:''},
+  {sku:'32002898192VLE.B',desc:'3030 BOSCH - Adattatore ZIF/DIN (#5)',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'14540934147V01.00',desc:'USB TO RS-232 ADAPTER',qty:1,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'',desc:'DONGLE',qty:3,status:'תקין',loc:'C5',type:'',notes:''},
+  {sku:'',desc:'גריז',qty:1,status:'תקין',loc:'B3',type:'',notes:''},
+];
+
+// ═══════════════════════════════════════════════
+// GOOGLE SHEETS
+// ═══════════════════════════════════════════════
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxi3COUjaQKFW2sqXhF89guE5E4wCyT8_t6HLbqIvp7TEn-Rk1VAuNxHduLD7KHbW0sSA/exec';
+
+function setSyncIndicator(status, msg) {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  const map = {
+    loading: ['⟳ טוען...', 'var(--amber)'],
+    saving:  ['⟳ שומר...', 'var(--amber)'],
+    ok:      ['✓ מסונכרן', 'var(--green)'],
+    error:   ['✕ שגיאה', 'var(--red)'],
+  };
+  const [text, color] = map[status] || ['', 'var(--text3)'];
+  el.textContent = msg || text;
+  el.style.color = color;
+}
+
+async function loadFromSheets() {
+  setSyncIndicator('loading');
+  try {
+    const res = await fetch(SHEETS_URL);
+    const json = await res.json();
+    if (json.status === 'ok' && json.data && json.data.length > 0) {
+      inventory = json.data.map(r => ({
+        sku:    String(r['מקט']||''),
+        desc:   String(r['תיאור']||''),
+        qty:    parseInt(r['כמות'])||1,
+        status: String(r['סטטוס']||'תקין'),
+        loc:    String(r['מיקום']||''),
+        type:   String(r['סוג']||''),
+        notes:  String(r['הערות']||''),
+      }));
+      refresh();
+      setSyncIndicator('ok');
+      toast('נתונים נטענו מ-Google Sheets ✓', 'success');
+    } else {
+      setSyncIndicator('ok', '✓ גיליון ריק');
+    }
+  } catch(err) {
+    setSyncIndicator('error');
+    toast('שגיאה בחיבור ל-Google Sheets', '');
+    console.error('Sheets load error:', err);
+  }
+}
+
+async function saveToSheets() {
+  setSyncIndicator('saving');
+  const data = inventory.map(r => ({
+    'מקט': r.sku||'', 'תיאור': r.desc||'', 'כמות': r.qty||1,
+    'סטטוס': r.status||'תקין', 'מיקום': r.loc||'', 'סוג': r.type||'', 'הערות': r.notes||''
+  }));
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({ action: 'save', data })
+    });
+    setSyncIndicator('ok');
+    toast('נשמר ב-Google Sheets ✓', 'success');
+  } catch(err) {
+    setSyncIndicator('error');
+    console.error('Sheets save error:', err);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════
+let charts = {};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c && c.destroy());
+  charts = {};
+}
+
+function renderCharts() {
+  destroyCharts();
+  const ok = inventory.filter(i => i.status === 'תקין').length;
+  const bad = inventory.filter(i => i.status === 'תקול').length;
+  const locCounts = {}, locUnits = {};
+  inventory.forEach(r => {
+    if (r.loc) {
+      locCounts[r.loc] = (locCounts[r.loc] || 0) + 1;
+      locUnits[r.loc] = (locUnits[r.loc] || 0) + (parseInt(r.qty) || 0);
+    }
+  });
+  const sortedLocs = Object.entries(locCounts).sort((a,b) => b[1]-a[1]);
+  const typeCounts = {};
+  inventory.forEach(r => {
+    const t = r.type || 'ללא סוג';
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
+  const typeEntries = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
+  const gridColor = 'rgba(255,255,255,0.06)';
+  const tickColor = '#545c72';
+
+  charts.status = new Chart(document.getElementById('chartStatus'), {
+    type: 'doughnut',
+    data: { labels: ['תקין','תקול'], datasets: [{ data: [ok, bad], backgroundColor: ['#34d399','#f87171'], borderWidth: 0, hoverOffset: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { rtl: true } } }
+  });
+  charts.loc = new Chart(document.getElementById('chartLoc'), {
+    type: 'bar',
+    data: { labels: sortedLocs.map(e=>e[0]), datasets: [{ label:'פריטים', data: sortedLocs.map(e=>e[1]), backgroundColor:'#4f8ef7', borderWidth:0, borderRadius:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{rtl:true}}, scales:{ y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}}, x:{grid:{display:false},ticks:{color:tickColor,font:{size:11},autoSkip:false,maxRotation:0}} } }
+  });
+  charts.type = new Chart(document.getElementById('chartType'), {
+    type: 'bar',
+    data: { labels: typeEntries.map(e=>e[0]), datasets: [{ label:'פריטים', data: typeEntries.map(e=>e[1]), backgroundColor:'#7c6ff7', borderWidth:0, borderRadius:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{rtl:true}}, scales:{ y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}}, x:{grid:{display:false},ticks:{color:tickColor,font:{size:11},autoSkip:false,maxRotation:20}} } }
+  });
+  charts.units = new Chart(document.getElementById('chartUnits'), {
+    type: 'bar',
+    data: { labels: sortedLocs.map(e=>e[0]), datasets: [{ label:'יחידות', data: sortedLocs.map(e=>locUnits[e[0]]||0), backgroundColor:'#2dd4bf', borderWidth:0, borderRadius:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{rtl:true}}, scales:{ y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}}, x:{grid:{display:false},ticks:{color:tickColor,font:{size:11},autoSkip:false,maxRotation:0}} } }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// METRICS
+// ═══════════════════════════════════════════════
+function updateMetrics() {
+  const total = inventory.length;
+  const units = inventory.reduce((s, i) => s + (parseInt(i.qty) || 0), 0);
+  const ok = inventory.filter(i => i.status === 'תקין').length;
+  const bad = inventory.filter(i => i.status === 'תקול').length;
+  document.getElementById('m-total').textContent = total;
+  document.getElementById('m-units').textContent = units;
+  document.getElementById('m-ok').textContent = ok;
+  document.getElementById('m-bad').textContent = bad;
+  document.getElementById('m-ok-pct').textContent = (total ? Math.round(ok/total*100) : 0) + '% מהמלאי';
+  document.getElementById('m-bad-pct').textContent = (total ? Math.round(bad/total*100) : 0) + '% מהמלאי';
+  document.getElementById('last-update').textContent = new Date().toLocaleDateString('he-IL', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const faultyItems = inventory.filter(i => i.status === 'תקול');
+  const banner = document.getElementById('faulty-alert');
+  if (faultyItems.length > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('faulty-msg').textContent = faultyItems.length + ' פריטים תקולים: ' + faultyItems.map(i => i.desc).join(', ');
+  } else {
+    banner.style.display = 'none';
+  }
+  document.getElementById('inv-subtitle').textContent = total + ' פריטים · ' + units + ' יחידות';
+}
+
+// ═══════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════
+function populateFilters() {
+  const locs = [...new Set(inventory.map(i => i.loc).filter(Boolean))].sort();
+  const types = [...new Set(inventory.map(i => i.type).filter(Boolean))].sort();
+  document.getElementById('filter-loc').innerHTML = '<option value="">כל המיקומים</option>' + locs.map(l => `<option>${l}</option>`).join('');
+  document.getElementById('filter-type').innerHTML = '<option value="">כל הסוגים</option>' + types.map(t => `<option>${t}</option>`).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const st = document.getElementById('filter-status').value;
+  const lc = document.getElementById('filter-loc').value;
+  const tp = document.getElementById('filter-type').value;
+  const filtered = inventory.filter((r, idx) => {
+    r._idx = idx;
+    return (!q || (r.sku||'').toLowerCase().includes(q) || (r.desc||'').toLowerCase().includes(q) || (r.loc||'').toLowerCase().includes(q) || (r.notes||'').toLowerCase().includes(q))
+      && (!st || r.status === st) && (!lc || r.loc === lc) && (!tp || r.type === tp);
+  });
+  renderTable(filtered);
+  document.getElementById('table-count').textContent = filtered.length + ' / ' + inventory.length;
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('inv-tbody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">אין פריטים מתאימים לחיפוש</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((r, i) => {
+    const idx = r._idx !== undefined ? r._idx : i;
+    return `<tr>
+      <td><span class="sku-text" title="${r.sku||''}">${r.sku || '—'}</span></td>
+      <td style="font-weight:500;max-width:220px">${r.desc || '—'}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:600;color:#e8eaf0">${r.qty || 0}</td>
+      <td><span class="badge status-toggle ${r.status==='תקין'?'badge-ok':'badge-bad'}" onclick="quickToggleStatus(${idx})" title="לחץ להחלפת סטטוס">${r.status==='תקין'?'✓':'✕'} ${r.status}</span></td>
+      <td>${r.loc ? `<span class="loc-tag">${r.loc}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${r.type ? `<span class="type-tag">${r.type}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.notes||''}">${r.notes || ''}</td>
+      <td style="white-space:nowrap">
+        <button class="action-btn-edit" onclick="openEditModal(${idx})" title="עריכה">✎</button>
+        <button class="action-btn" onclick="deleteItem(${idx})" title="מחק">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function deleteItem(idx) {
+  if (!confirm('למחוק את הפריט "' + inventory[idx].desc + '"?')) return;
+  inventory.splice(idx, 1);
+  refresh();
+  saveToSheets();
+  toast('הפריט נמחק', 'success');
+}
+
+function quickToggleStatus(idx) {
+  inventory[idx].status = (inventory[idx].status === 'תקין') ? 'תקול' : 'תקין';
+  refresh();
+  saveToSheets();
+  toast('"' + inventory[idx].desc + '" שונה ל-' + inventory[idx].status, 'success');
+}
+
+// ═══════════════════════════════════════════════
+// EDIT MODAL
+// ═══════════════════════════════════════════════
+let editingIdx = -1;
+
+function openEditModal(idx) {
+  editingIdx = idx;
+  const r = inventory[idx];
+  document.getElementById('e-sku').value = r.sku || '';
+  document.getElementById('e-desc').value = r.desc || '';
+  document.getElementById('e-qty').value = r.qty || 1;
+  document.getElementById('e-status').value = r.status || 'תקין';
+  document.getElementById('e-loc').value = r.loc || '';
+  document.getElementById('e-type').value = r.type || '';
+  document.getElementById('e-notes').value = r.notes || '';
+  document.getElementById('edit-modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('e-desc').focus(), 200);
+}
+
+function closeEditModal(event) {
+  if (event && event.target !== document.getElementById('edit-modal-overlay')) return;
+  document.getElementById('edit-modal-overlay').classList.remove('open');
+  editingIdx = -1;
+}
+
+function saveEdit() {
+  if (editingIdx < 0) return;
+  const desc = document.getElementById('e-desc').value.trim();
+  if (!desc) { alert('חובה למלא תיאור רכיב'); return; }
+  inventory[editingIdx] = {
+    sku: document.getElementById('e-sku').value.trim(),
+    desc,
+    qty: parseInt(document.getElementById('e-qty').value) || 1,
+    status: document.getElementById('e-status').value,
+    loc: document.getElementById('e-loc').value,
+    type: document.getElementById('e-type').value.trim(),
+    notes: document.getElementById('e-notes').value.trim(),
+  };
+  document.getElementById('edit-modal-overlay').classList.remove('open');
+  editingIdx = -1;
+  refresh();
+  saveToSheets();
+  toast('הפריט עודכן בהצלחה ✓', 'success');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+
+// ═══════════════════════════════════════════════
+// ADD ITEM
+// ═══════════════════════════════════════════════
+function addItem() {
+  const desc = document.getElementById('f-desc').value.trim();
+  if (!desc) { showMsg('add-msg', 'חובה למלא תיאור רכיב', 'error'); return; }
+  inventory.push({
+    sku: document.getElementById('f-sku').value.trim(),
+    desc,
+    qty: parseInt(document.getElementById('f-qty').value) || 1,
+    status: document.getElementById('f-status').value,
+    loc: document.getElementById('f-loc').value,
+    type: document.getElementById('f-type').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+  });
+  refresh();
+  saveToSheets();
+  showMsg('add-msg', 'הפריט נוסף בהצלחה ✓', 'success');
+  toast('פריט חדש נוסף למלאי', 'success');
+  ['f-sku','f-desc','f-type','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-qty').value = '1';
+  document.getElementById('f-loc').value = '';
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  setTimeout(() => { el.className = 'msg'; }, 3500);
+}
+
+// ═══════════════════════════════════════════════
+// LOCATIONS
+// ═══════════════════════════════════════════════
+function renderLocations() {
+  const counts = {}, units = {};
+  inventory.forEach(r => {
+    if (r.loc) {
+      counts[r.loc] = (counts[r.loc]||0) + 1;
+      units[r.loc] = (units[r.loc]||0) + (parseInt(r.qty)||0);
+    }
+  });
+  const maxC = Math.max(...Object.values(counts), 1);
+  const allLocs = ['A1','A2','A3','A4','A5','B1','B2','B3','B4','B5','C1','C2','C3','C4','C5','D1','D2','D3','D4','D5'];
+  document.getElementById('loc-grid').innerHTML = allLocs.map(l => {
+    const c = counts[l]||0, u = units[l]||0, pct = Math.round((c/maxC)*100);
+    return `<div class="loc-cell ${c>0?'has-items':''}">
+      <div class="loc-name">${l}</div>
+      <div class="loc-info">${c} פריטים<br>${u} יחידות</div>
+      <div class="loc-bar-wrap"><div class="loc-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// IMPORT / EXPORT
+// ═══════════════════════════════════════════════
+function detectSeparator(line) {
+  return (line.match(/;/g)||[]).length >= (line.match(/,/g)||[]).length ? ';' : ',';
+}
+
+function parseCSVLine(line, sep) {
+  const result = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === sep && !inQuotes) {
+      result.push(cur.trim()); cur = '';
+    } else { cur += ch; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const raw = ev.target.result.replace(/^﻿/, '');
+    const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    const sep = detectSeparator(lines[0]);
+    let added = 0;
+    const isFullExport = lines[0].includes('מקט');
+    if (isFullExport && confirm('לאפס את המלאי הנוכחי ולטעון מחדש?
+(ביטול = הוסף לנתונים הקיימים)')) {
+      inventory = [];
+    }
+    lines.slice(1).forEach(line => {
+      if (!line.trim()) return;
+      const p = parseCSVLine(line, sep);
+      if (p.length >= 2 && (p[0]||p[1]||'').trim()) {
+        inventory.push({ sku:p[0]||'', desc:p[1]||'', qty:parseInt(p[2])||1, status:p[3]||'תקין', loc:p[4]||'', type:p[5]||'', notes:p[6]||'' });
+        added++;
+      }
+    });
+    refresh();
+    saveToSheets();
+    showMsg('import-msg', 'יובאו ' + added + ' פריטים ✓', 'success');
+    toast(added + ' פריטים יובאו', 'success');
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+function exportCSV() {
+  const sep = ';';
+  const header = ['מקט','תיאור','כמות','סטטוס','מיקום','סוג','הערות'].join(sep);
+  const rows = inventory.map(r =>
+    [r.sku,r.desc,r.qty,r.status,r.loc,r.type,r.notes].map(v => {
+      const s = String(v===null||v===undefined?'':v);
+      return s.includes(sep)||s.includes('"')||s.includes('
+') ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join(sep)
+  );
+  const csv = [header,...rows].join('
+');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'מחסן_SPEA_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('הקובץ הורד בהצלחה', 'success');
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    const tabs = ['overview','inventory','add','locations','import'];
+    el.classList.toggle('active', tabs[i] === tab);
+  });
+  if (tab === 'overview') { updateMetrics(); setTimeout(renderCharts, 50); }
+  if (tab === 'inventory') { populateFilters(); filterTable(); }
+  if (tab === 'locations') renderLocations();
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2500);
+}
+
+// ═══════════════════════════════════════════════
+// REFRESH
+// ═══════════════════════════════════════════════
+function refresh() {
+  updateMetrics();
+  renderCharts();
+  populateFilters();
+  filterTable();
+  renderLocations();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  refresh();
+  document.getElementById('table-count').textContent = inventory.length + ' / ' + inventory.length;
+  loadFromSheets();
+});
+</script>
+</body>
+</html>
